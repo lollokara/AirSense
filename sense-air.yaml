@@ -1,0 +1,198 @@
+esphome:
+  name: sense-air
+  friendly_name: sense-air
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+#i2c a has connected the SPS30
+#i2c b has connected the BME680 SCD41 and ADS1115
+#pins are customizable
+
+i2c:
+  - id: bus_a  
+    sda: GPIO13
+    scl: GPIO14
+    scan: true
+  - id: bus_b
+    sda: GPIO41
+    scl: GPIO42
+    scan: true
+
+ads1115:
+  - address: 0x48
+    i2c_id: bus_b
+
+
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2811
+    pin: GPIO48
+    num_leds: 1
+    name: "Sense-air NeoPixel"
+
+sensor:
+  - platform: sps30
+    i2c_id: bus_a
+    pm_1_0:
+      name: "Sense-air PM <1µm Weight concentration"
+      id: "sense_air_PM_1_0"
+    pm_2_5:
+      name: "Sense-air PM <2.5µm Weight concentration"
+      id: "sense_air_PM_2_5"
+    pm_4_0:
+      name: "Sense-air PM <4µm Weight concentration"
+      id: "sense_air_PM_4_0"
+    pm_10_0:
+      name: "Sense-air PM <10µm Weight concentration"
+      id: "sense_air_PM_10_0"
+    pmc_0_5:
+      name: "Sense-air PM <0.5µm Number concentration"
+      id: "sense_air_PMC_0_5"
+    pmc_1_0:
+      name: "Sense-air PM <1µm Number concentration"
+      id: "sense_air_PMC_1_0"
+    pmc_2_5:
+      name: "Sense-air PM <2.5µm Number concentration"
+      id: "sense_air_PMC_2_5"
+    pmc_4_0:
+      name: "Sense-air PM <4µm Number concentration"
+      id: "sense_air_PMC_4_0"
+    pmc_10_0:
+      name: "Sense-air PM <10µm Number concentration"
+      id: "sense_air_PMC_10_0"
+    pm_size:
+      name: "Typical Particle size"
+      id: "pm_size"
+    address: 0x69
+    update_interval: 10s
+
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 4.096
+    name: "Sense-air ADS1115 NO2"
+    update_interval: 1s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 10
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 4.096
+    name: "Sense-air ADS1115 NH3"
+    update_interval: 1s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 10
+
+  - platform: ads1115
+    multiplexer: 'A2_GND'
+    gain: 4.096
+    name: "Sense-air ADS1115 CO"
+    update_interval: 1s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 10
+
+  - platform: scd4x
+    i2c_id: bus_b
+    co2:
+      name: "Sense-air CO2"
+    temperature:
+      name: "Sense-air SCD41 Temperature"
+    humidity:
+      name: "Sense-air SCD41 Humidity"
+    update_interval: 10s
+    ambient_pressure_compensation_source: "bme_pressure"
+
+  - platform: bme680
+    i2c_id: bus_b
+    temperature:
+      name: "Sense-air BME680 Temperature"
+      oversampling: 16x
+      id: temperature
+    pressure:
+      name: "Sense-air BME680 Pressure"
+      oversampling: 16x
+      id: bme_pressure
+    humidity:
+      name: "Sense-air BME680 Humidity"
+      id: humidity
+    gas_resistance:
+      name: "Sense-air BME680 Gas Resistance"
+      id: gas_resistance
+    address: 0x77
+    update_interval: 10s
+  - platform: template
+    name: "Sense-air Indoor Air Quality"
+    id: iaq
+    icon: "mdi:gauge"
+    # calculation: comp_gas = log(R_gas[ohm]) + 0.04 log(Ohm)/%rh * hum[%rh]
+    lambda: |-
+      return log(id(gas_resistance).state) + 0.04 *  id(humidity).state;
+    state_class: "measurement"
+
+
+text_sensor:
+  - platform: template
+    name: "Sense-air IAQ Classification"
+    icon: "mdi:checkbox-marked-circle-outline"
+    lambda: |-
+      if (int(id(iaq).state) <= 50) {
+        return {"Excellent"};
+      }
+      else if (int(id(iaq).state) <= 100) {
+        return {"Good"};
+      }
+      else if (int(id(iaq).state) <= 150) {
+        return {"Lightly polluted"};
+      }
+      else if (int(id(iaq).state) <= 200) {
+        return {"Moderately polluted"};
+      }
+      else if (int(id(iaq).state) <= 250) {
+        return {"Heavily polluted"};
+      }
+      else if (int(id(iaq).state) <= 350) {
+        return {"Severely polluted"};
+      }
+      else if (int(id(iaq).state) <= 500) {
+        return {"Extremely polluted"};
+      }
+      else {
+        return {"unknown"};
+      }
+      
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "**YAKEYS**"
+
+ota:
+  - platform: esphome
+    password: "**YAPASSWORD**"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Sense-Air Fallback Hotspot"
+    password: "**YAPASSWORD**"
+
+captive_portal:
+    
