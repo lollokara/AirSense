@@ -11,3 +11,4 @@ Is an ESPhome project for the ESP32S3 be used as a High Quality (High cost) Air 
 * **SCD41/0**
 * **3D Printer** 
 
+![alt text](https://github.com/lollokara/AirSense/blob/main/Image.png?raw=true)
